@@ -1,0 +1,52 @@
+User instructions by assistant
+--- 
+
+1) "how do i make sure that the output file lands in the folder output_scrapers?"
+   - Summary: Ensure scraper writes its CSV to the `output_scrapers` folder (cross-platform).
+
+2) "can you make the script scrape all the gathered articles aswell?"
+   - Summary: After collecting article links, follow and scrape each linked article as well.
+
+3) "what i would like for you to make is a scraper that reads the articles and scrape any data related to the keyword"
+   - Summary: Extract keyword-focused data from article text (contexts, sentences, numbers, dates, etc.).
+
+4) "per-article json seems nice, but make sure the repo doesnt get messy, so add a folder to output_scrapers."
+   - Summary: Save per-article JSONs inside a subfolder under `output_scrapers` (avoid cluttering repo root).
+
+5) "so the script makes automatically jsons based on the links found with the keyword?"
+   - Summary: Confirm automatic JSON creation for articles discovered by keyword-based scraping.
+
+6) "no need for cli implementation"
+   - Summary: Don't add a command-line interface — function parameters are enough.
+
+7) "whats up with spaCy?"
+   - Summary: Ask about adding spaCy (NER, NLP) to extract structured entities from article text.
+
+8) "yeah go ahead, i just have one question: will the script with spaCy become like an ai scrapy thing? cuz thats totally fine."
+   - Summary: Approve adding spaCy; ask whether it makes the scraper an "AI" scraper (OK with that).
+
+9) "can you make a commit message and add a description of the drimble scraper in the readme?"
+   - Summary: Add README documentation for the Drimble scraper and provide a commit message.
+
+10) "in data-politie-scraper.py i want to scrape the website data.politie.nl also about the keyword vuurwerk"
+    - Summary: Add scraping for data.politie.nl focusing on keyword `vuurwerk`.
+
+11) "https://data.politie.nl/#/Politie/nl/dataset/47025NED/table?ts=1764508892319"
+    - Summary: Example dataset/table URL found when searching for the keyword — use it as an example target.
+
+12) "https://data.politie.nl/#/Politie/nl/navigatieScherm/thema on this site i can enter the keyword which lead to results that only contents tables"
+    - Summary: The site provides a search UI that returns table-only results (SPA).
+
+13) "it would be awesome if we could do it automatically, dont you think?"
+    - Summary: Preferred: automatic probing/discovery of the site's API or tables rather than manual input.
+
+14) "can it be the robots.txt that fucks you?"
+    - Summary: Suggestion to check `robots.txt` and possible blocking or API restrictions.
+
+15) "can you state all the instructions i gave you into a textfile?"
+    - Summary: (current) Request to record all user instructions into a text file.
+
+---
+Notes:
+- These lines are direct quotes of the user's messages (verbatim where present) followed by a concise summary of the intended action.
+- File created automatically by the assistant on behalf of the user.

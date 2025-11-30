@@ -1,0 +1,7 @@
+User instructions by chatgpt
+---
+
+1) kan je een scraper maken om drimble.nl te scrapen op artikelen mbt vuurwerk?
+   - Summary: Create a scraper for drimble.nl to collect articles related to "vuurwerk".
+   - Details: Hierdoor ontstond de 1e versie van de drimble scraper. Waarnaar de assistant de volgende instructies kreeg in 
+   de file {scrapers-by-assistant.txt}. 
