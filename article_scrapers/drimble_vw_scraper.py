@@ -1,10 +1,14 @@
 import csv
 import os
 import time
+import re
+import json
+import hashlib
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from collections import deque
 
 BASE_URL = "https://drimble.nl"
 SEARCH_PATH = "/zoeken.html"
@@ -12,6 +16,23 @@ SEARCH_PATH = "/zoeken.html"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; DrimbleVuurwerkScraper/1.0; +https://example.com)"
 }
+
+# Attempt to load spaCy NLP model for Dutch (optional)
+_SPACY_NLP = None
+try:
+    import spacy
+    try:
+        # prefer a language-specific model; this requires the model to be installed separately
+        _SPACY_NLP = spacy.load("nl_core_news_sm")
+    except Exception:
+        # fallback: try to load any default model name
+        try:
+            _SPACY_NLP = spacy.load("nl")
+        except Exception:
+            _SPACY_NLP = None
+            print("[WARN] spaCy model not found. Install 'nl_core_news_sm' with: python -m spacy download nl_core_news_sm")
+except Exception:
+    _SPACY_NLP = None
 
 # --- HULPFUNCTIES -----------------------------------------------------------
 
@@ -172,6 +193,84 @@ def extract_article_data(url, keyword):
     # Woordentelling
     word_count = len(full_text.split()) if full_text else 0
 
+    # Hulp: extra informatie rond het keyword
+    def _extract_keyword_info(text, keyword):
+        k = keyword.lower()
+        contexts = []
+        sentences = []
+        numbers = []
+        dates = []
+
+        # simple sentence split
+        sent_split = re.split(r'(?<=[.!?])\s+', text)
+        for s in sent_split:
+            if k in s.lower():
+                sentences.append(s.strip())
+
+        # contexts (windowed snippets)
+        for m in re.finditer(re.escape(keyword), text, flags=re.IGNORECASE):
+            start = max(0, m.start() - 120)
+            end = min(len(text), m.end() + 120)
+            contexts.append(text[start:end].strip())
+
+            # numbers near keyword (30 chars window)
+            window_start = max(0, m.start() - 30)
+            window_end = min(len(text), m.end() + 30)
+            window = text[window_start:window_end]
+            for num in re.findall(r"\b\d+[\d.,]*\b", window):
+                numbers.append(num)
+
+        # dates (very simple heuristics)
+        for d in re.findall(r"\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b", text):
+            dates.append(d)
+        for d in re.findall(r"\b\d{4}\b", text):
+            dates.append(d)
+
+        # dedup while preserving order
+        def _uniq(seq):
+            seen = set(); out = []
+            for x in seq:
+                if x not in seen:
+                    seen.add(x); out.append(x)
+            return out
+
+        return {
+            "sentences_with_keyword": _uniq(sentences),
+            "keyword_contexts": _uniq(contexts),
+            "numbers_near_keyword": _uniq(numbers),
+            "dates_in_text": _uniq(dates),
+            "occurrences": len(contexts),
+        }
+
+    # Zoek interne article-links (basis: links die naar dezelfde host wijzen)
+    internal_links = []
+    for a in soup.find_all("a", href=True):
+        href = a.get("href")
+        full = urljoin(url, href)
+        # alleen interne links
+        if full.startswith(BASE_URL) and full != url:
+            internal_links.append(full)
+
+    # keyword-related info
+    kw_info = _extract_keyword_info(full_text, keyword)
+
+    # Entities via spaCy (if available)
+    entities = {}
+    if _SPACY_NLP and full_text:
+        try:
+            doc = _SPACY_NLP(full_text)
+            for ent in doc.ents:
+                entities.setdefault(ent.label_, []).append(ent.text)
+            # deduplicate while preserving order
+            for k, v in list(entities.items()):
+                seen = set(); out = []
+                for x in v:
+                    if x not in seen:
+                        seen.add(x); out.append(x)
+                entities[k] = out
+        except Exception as e:
+            print(f"[WARN] spaCy entity extraction failed for {url}: {e}")
+
     return {
         "title": title,
         "url": url,
@@ -180,6 +279,13 @@ def extract_article_data(url, keyword):
         "tags": tags,
         "main_image": main_image,
         "word_count": word_count,
+        "internal_links": list(dict.fromkeys(internal_links)),
+        "entities": entities,
+        "keyword_occurrences": kw_info["occurrences"],
+        "keyword_contexts": kw_info["keyword_contexts"],
+        "keyword_sentences": kw_info["sentences_with_keyword"],
+        "numbers_near_keyword": kw_info["numbers_near_keyword"],
+        "dates_in_text": kw_info["dates_in_text"],
         "contains_keyword": contains_keyword,
         "snippet": snippet,
         "full_text": full_text,
@@ -230,7 +336,7 @@ def search_drimble_for_keyword(keyword, max_pages=1):
     return unique_results
 
 
-def scrape_vuurwerk_articles(output_csv=None, max_pages=1):
+def scrape_vuurwerk_articles(output_csv=None, max_pages=1, follow_links=True, max_link_depth=1, max_links_per_article=5, max_total_articles=500, save_json=True, save_json_all=False, json_subdir="articles"):
     """
     Scrapes vuurwerk articles from Drimble.
     
@@ -246,28 +352,83 @@ def scrape_vuurwerk_articles(output_csv=None, max_pages=1):
     # Ensure output directory exists
     output_dir = os.path.dirname(output_csv)
     os.makedirs(output_dir, exist_ok=True)
+    # JSON output directory (subfolder inside output_scrapers)
+    json_dir = os.path.join(output_dir, json_subdir)
+    if save_json:
+        os.makedirs(json_dir, exist_ok=True)
     
     keyword = "vuurwerk"
-    search_results = search_drimble_for_keyword(keyword, max_pages=max_pages)
 
-    print(f"[INFO] Totaal {len(search_results)} unieke zoekresultaten gevonden.")
+    # Begin met zoekresultaten als startpunt
+    search_results = search_drimble_for_keyword(keyword, max_pages=max_pages)
+    start_urls = [r["url"] for r in search_results]
+    print(f"[INFO] Totaal {len(start_urls)} unieke zoekresultaten gevonden.")
 
     rows = []
-    for i, res in enumerate(search_results, start=1):
-        print(f"[INFO] ({i}/{len(search_results)}) Verwerk artikel: {res['url']}")
-        article_data = extract_article_data(res["url"], keyword)
+    processed = set()
+    queue = deque()
+
+    # enqueue start urls with depth 0
+    for u in start_urls:
+        queue.append((u, 0))
+
+    while queue and len(processed) < max_total_articles:
+        url, depth = queue.popleft()
+        if url in processed:
+            continue
+        print(f"[INFO] Verwerk artikel (depth={depth}): {url}")
+        article_data = extract_article_data(url, keyword)
+        processed.add(url)
         if not article_data:
             continue
 
         if not article_data["contains_keyword"]:
-            # optioneel: filter artikelen waar 'vuurwerk' niet echt in de tekst staat
             print("   -> keyword niet in tekst, overslaan")
-            continue
+            # still optionally follow links even if keyword not found
+        else:
+            rows.append(article_data)
 
-        rows.append(article_data)
+        # Save per-article JSON if desired
+        if save_json and (article_data.get("contains_keyword") or save_json_all):
+            # create a stable filename: index + short sha1
+            sha = hashlib.sha1(url.encode("utf-8")).hexdigest()[:8]
+            idx = len(processed)
+            # sanitize title into short slug
+            title = article_data.get("title") or "article"
+            slug = re.sub(r"[^0-9a-zA-Z_-]", "_", title)[:40]
+            filename = f"{idx:04d}_{slug}_{sha}.json"
+            filepath = os.path.join(json_dir, filename)
+            try:
+                with open(filepath, "w", encoding="utf-8") as jf:
+                    json.dump(article_data, jf, ensure_ascii=False, indent=2)
+            except Exception as e:
+                print(f"   -> kon JSON niet schrijven voor {url}: {e}")
+
+        # follow internal links if requested and depth limit not reached
+        if follow_links and depth < max_link_depth:
+            links = article_data.get("internal_links", [])[:max_links_per_article]
+            for l in links:
+                if l not in processed:
+                    queue.append((l, depth + 1))
 
     # Naar CSV schrijven (tags worden als ;-gescheiden string opgeslagen)
-    fieldnames = ["title", "url", "date", "author", "tags", "main_image", "word_count", "snippet", "full_text"]
+    fieldnames = [
+        "title",
+        "url",
+        "date",
+        "author",
+        "tags",
+        "main_image",
+        "word_count",
+        "snippet",
+        "full_text",
+        "entities",
+        "keyword_occurrences",
+        "keyword_contexts",
+        "keyword_sentences",
+        "numbers_near_keyword",
+        "dates_in_text",
+    ]
     with open(output_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -282,6 +443,12 @@ def scrape_vuurwerk_articles(output_csv=None, max_pages=1):
                 "word_count": r.get("word_count", 0),
                 "snippet": r.get("snippet", ""),
                 "full_text": r.get("full_text", ""),
+                "entities": json.dumps(r.get("entities", {}), ensure_ascii=False),
+                "keyword_occurrences": r.get("keyword_occurrences", 0),
+                "keyword_contexts": json.dumps(r.get("keyword_contexts", []), ensure_ascii=False),
+                "keyword_sentences": json.dumps(r.get("keyword_sentences", []), ensure_ascii=False),
+                "numbers_near_keyword": json.dumps(r.get("numbers_near_keyword", []), ensure_ascii=False),
+                "dates_in_text": json.dumps(r.get("dates_in_text", []), ensure_ascii=False),
             })
 
     print(f"[KLAAR] {len(rows)} artikelen met '{keyword}' opgeslagen in {output_csv}")
