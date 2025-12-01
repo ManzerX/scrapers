@@ -30,7 +30,7 @@ pip install -r article_scrapers/requirements.txt
 # (optional) install the Dutch spaCy model for better entity extraction
 python -m spacy download nl_core_news_sm
 
-& C:/Users/marco/AppData/Local/Microsoft/WindowsApps/python3.13.exe c:/Users/marco/OneDrive/Desktop/scrapers/article_scrapers/drimble_vw_scraper.py
+& C:/Users/user/AppData/Local/Microsoft/WindowsApps/python3.13.exe c:/Users/user/OneDrive/Desktop/scrapers/article_scrapers/drimble_vw_scraper.py
 ```
 
 Configuration:
