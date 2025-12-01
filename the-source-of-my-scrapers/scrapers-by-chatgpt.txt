@@ -5,3 +5,10 @@ User instructions by chatgpt
    - Summary: Create a scraper for drimble.nl to collect articles related to "vuurwerk".
    - Details: Hierdoor ontstond de 1e versie van de drimble scraper. Waarnaar de assistant de volgende instructies kreeg in 
    de file {scrapers-by-assistant.txt}. 
+
+2) jij neemt de rol aan van data-analyst en moet voor een opleiding forensisch ict een willekeurig 
+vraagstuk over het gebruik van vuurwerk oplossen doormiddel van data-analyse. 
+welke bronnen zou je scrapen om je data van te verzamelen?
+
+3) ik heb bronnen nodig en de (python)code om ze mee te scrapen, 
+ik moet dus eigenlijk alles hebben rondom het verzamelen van data.
