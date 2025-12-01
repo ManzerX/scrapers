@@ -67,7 +67,7 @@ Work needed / Next steps:
 How to run (PowerShell):
 
 ```powershell
-& C:/Users/marco/AppData/Local/Microsoft/WindowsApps/python3.13.exe c:/Users/marco/OneDrive/Desktop/scrapers/article_scrapers/data-politie-scraper.py
+C:/Users/user/AppData/Local/Microsoft/WindowsApps/python3.13.exe c:/Users/user/OneDrive/Desktop/scrapers/article_scrapers/data-politie-scraper.py
 ```
 
 Notes:
