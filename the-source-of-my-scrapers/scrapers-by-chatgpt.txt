@@ -12,3 +12,10 @@ welke bronnen zou je scrapen om je data van te verzamelen?
 
 3) ik heb bronnen nodig en de (python)code om ze mee te scrapen, 
 ik moet dus eigenlijk alles hebben rondom het verzamelen van data.
+
+4) jij neemt de rol aan van data-analyst en moet voor een opleiding forensisch ict een willekeurig vraagstuk 
+over het gebruik van vuurwerk oplossen doormiddel van data-analyse. 
+hierbij staat de onderzoeksvraag "In welke mate draagt illegaal vuurwerk ten opzichte van legaal afgestoken vuurwerk 
+bij aan gemelde incidenten tijdens 31 december en 1 januari in Nederland?" centraal. 
+Ik heb ervoor gekozen om voor dit vraagstuk reddit als bron te gebruiken voor de data. Aan jou de taak om de reddit scraper te maken, 
+die de data voor dit vraagstuk moet binnenhalen.

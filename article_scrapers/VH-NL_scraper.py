@@ -1,5 +1,5 @@
 # Version: 1.0
-from scraper_helper import fetch, download_file, pdf_to_tables, BASE_DIR, PDF_DIR
+import scraper-helper as sh
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import os
@@ -12,7 +12,7 @@ VEILIGHEID_PAGES = [
 def find_vuurwerk_pdfs():
     pdf_urls = []
     for page_url in VEILIGHEID_PAGES:
-        resp = fetch(page_url)
+        resp = sh.fetch(page_url)
         soup = BeautifulSoup(resp.text, "html.parser")
         for a in soup.find_all("a", href=True):
             href = a["href"]
