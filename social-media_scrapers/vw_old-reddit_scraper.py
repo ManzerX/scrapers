@@ -19,8 +19,9 @@ HEADERS = {
 }
 
 SUBREDDITS = [
-    "thenetherlands",
+    "theNetherlands",
     "Netherlands",
+    "VuurwerkNL",
     "vuurwerk",  # als hij niet bestaat, krijg je gewoon geen resultaten
 ]
 
@@ -44,7 +45,7 @@ INCIDENT_KEYWORDS = [
 ]
 
 ILLEGAL_KEYWORDS = [
-    "illegaal vuurwerk", "illegal vuurwerk",
+    "illegaal vuurwerk", "legaal vuurwerk",
     "cobra 6", "cobra6", "nitraat", "nitraten",
     "strijker", "bunkerknaller", "polenknaller",
 ]
@@ -55,9 +56,11 @@ LEGAL_KEYWORDS = [
 ]
 
 # TIJDSRANGE VOOR FILTER:
-# Voorbeeld: Oudejaarsnacht 2023/2024 in UTC (je kunt dit aanpassen of per jaar loopen)
-START_DATETIME = datetime(2023, 12, 31, 0, 0, 0, tzinfo=timezone.utc)
-END_DATETIME = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+# Disabled voor nu - scrape alle posts ongeacht datum
+# START_DATETIME = datetime(2023, 12, 31, 0, 0, 0, tzinfo=timezone.utc)
+# END_DATETIME = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+START_DATETIME = None
+END_DATETIME = None
 
 # Max aantal pagina's per zoekopdracht (om het veilig/overzichtelijk te houden)
 MAX_PAGES_PER_QUERY = 3
@@ -74,8 +77,9 @@ def utc_timestamp(dt: datetime) -> int:
     return int(dt.timestamp())
 
 
-START_TS = utc_timestamp(START_DATETIME)
-END_TS = utc_timestamp(END_DATETIME)
+# Time range timestamps (disabled for now)
+START_TS = utc_timestamp(START_DATETIME) if START_DATETIME else None
+END_TS = utc_timestamp(END_DATETIME) if END_DATETIME else None
 
 
 def contains_any(text: str, keywords: List[str]) -> bool:
@@ -121,6 +125,9 @@ def parse_reddit_time(time_tag) -> Optional[datetime]:
 
 
 def is_in_time_range(dt: Optional[datetime]) -> bool:
+    # Time range filter disabled for now — accept all timestamps
+    if START_TS is None or END_TS is None:
+        return True
     if dt is None:
         return False
     ts = utc_timestamp(dt)
@@ -139,18 +146,15 @@ def extract_text_from_md(md_div) -> str:
 # SCRAPE POSTS (ZOEKRESULTATEN)
 # =========================
 
-def search_subreddit_posts(subreddit: str, query: str) -> List[Dict[str, Any]]:
+def search_subreddit_posts(subreddit: str, query: str = None) -> List[Dict[str, Any]]:
     """
-    Scrape zoekresultatenpagina's van old.reddit.com en filter op tijd.
-    Returned alleen basic post-info; body en comments doen we apart.
+    Crawl de /new/ pagina's van een subreddit en filter lokaal op SEARCH_TERMS.
+    De 'query'-parameter wordt genegeerd (alle zoekwoorden zitten in SEARCH_TERMS).
     """
     records: List[Dict[str, Any]] = []
 
-    # basis search URL
-    url = (
-        f"{BASE_URL}/r/{subreddit}/search/"
-        f"?q={query}&restrict_sr=on&sort=new&t=all"
-    )
+    # Begin bij /new/ (nieuwste posts eerst)
+    url = f"{BASE_URL}/r/{subreddit}/new/"
 
     page_count = 0
 
@@ -162,9 +166,9 @@ def search_subreddit_posts(subreddit: str, query: str) -> List[Dict[str, Any]]:
             break
 
         page_count += 1
-        print(f"[INFO] r/{subreddit} – query '{query}' – pagina {page_count}")
+        print(f"[INFO] r/{subreddit} – pagina {page_count} (new)")
 
-        # Elke post staat in een div met class="thing"
+        # Hier werkt 'thing' WEL (normale listing)
         things = soup.find_all("div", class_="thing", attrs={"data-type": "link"})
         print(f"[INFO] Gevonden {len(things)} posts op deze pagina")
 
@@ -175,19 +179,22 @@ def search_subreddit_posts(subreddit: str, query: str) -> List[Dict[str, Any]]:
             title_tag = thing.find("a", class_="title")
             title = title_tag.get_text(strip=True) if title_tag else ""
 
+            # Filter op je zoekwoorden in de titel
+            if not contains_any(title, SEARCH_TERMS):
+                continue
+
             permalink = thing.get("data-permalink")
             if not permalink and title_tag:
                 permalink = title_tag.get("href")
             if permalink and permalink.startswith("/"):
                 permalink = BASE_URL + permalink
 
-            # Tijd
             time_tag = thing.find("time")
             created_dt = parse_reddit_time(time_tag)
 
             if not is_in_time_range(created_dt):
-                # Buiten onze 31 dec / 1 jan range → skip
-                continue
+                # Als je straks tijdsfilter aanzet, werkt dit weer
+                pass  # nu staat je filter uit, dus deze regel doet niks
 
             score_tag = thing.find("div", class_="score")
             try:
@@ -198,7 +205,6 @@ def search_subreddit_posts(subreddit: str, query: str) -> List[Dict[str, Any]]:
             comments_tag = thing.find("a", class_="comments")
             num_comments = 0
             if comments_tag:
-                # tekst bv. "123 comments" of "1 comment"
                 text = comments_tag.get_text(strip=True)
                 parts = text.split()
                 for p in parts:
@@ -206,14 +212,14 @@ def search_subreddit_posts(subreddit: str, query: str) -> List[Dict[str, Any]]:
                         num_comments = int(p)
                         break
 
-            combined_text_for_flags = title  # body komt later (als je wilt)
+            combined_text_for_flags = title  # body komt later
 
             record = {
                 "type": "post",
                 "id": post_id,
                 "subreddit": subreddit,
                 "title": title,
-                "selftext": None,  # vullen we optioneel later
+                "selftext": None,
                 "created_utc": utc_timestamp(created_dt) if created_dt else None,
                 "created_datetime_utc": created_dt.isoformat() if created_dt else None,
                 "score": score,
@@ -226,7 +232,7 @@ def search_subreddit_posts(subreddit: str, query: str) -> List[Dict[str, Any]]:
 
             records.append(record)
 
-        # Volgende pagina zoeken via "next-button"
+        # Volgende pagina via "next-button"
         next_button = soup.find("span", class_="next-button")
         if next_button:
             next_link = next_button.find("a")
@@ -234,7 +240,7 @@ def search_subreddit_posts(subreddit: str, query: str) -> List[Dict[str, Any]]:
         else:
             url = None
 
-    print(f"[INFO] Totaal posts voor r/{subreddit} / '{query}': {len(records)}")
+    print(f"[INFO] Totaal posts voor r/{subreddit} (na keyword-filter): {len(records)}")
     return records
 
 
@@ -357,14 +363,14 @@ def run_scraper() -> pd.DataFrame:
     all_records: List[Dict[str, Any]] = []
 
     print(f"[INFO] Scraper gestart")
-    print(f"[INFO] Tijdsrange: {START_DATETIME.isoformat()} t/m {END_DATETIME.isoformat()} (UTC)")
+    # print(f"[INFO] Tijdsrange: {START_DATETIME.isoformat()} t/m {END_DATETIME.isoformat()} (UTC)")
 
     # 1) Posts vinden via zoekresultaten
     basic_posts: List[Dict[str, Any]] = []
     for subreddit in SUBREDDITS:
-        for term in SEARCH_TERMS:
-            posts = search_subreddit_posts(subreddit, term)
-            basic_posts.extend(posts)
+        posts = search_subreddit_posts(subreddit)
+        basic_posts.extend(posts)
+
 
     print(f"[INFO] Totaal posts (voor deduplicatie): {len(basic_posts)}")
 

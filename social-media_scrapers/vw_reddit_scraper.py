@@ -48,10 +48,11 @@ LEGAL_KEYWORDS = [
     "categorie 1", "categorie 2", "cat.1", "cat.2",
 ]
 
-# Tijdsperiode: 31 december t/m 1 januari (UTC) - voorbeeld voor jaar 2023/2024
-# Let op: Reddit timestamps zijn in UTC. Je kunt dit uitbreiden voor meerdere jaren.
-START_DATETIME = datetime(2023, 12, 31, 0, 0, 0, tzinfo=timezone.utc)
-END_DATETIME = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+# Tijdsperiode: disabled voor nu - zoeken over alle posts
+# START_DATETIME = datetime(2023, 12, 31, 0, 0, 0, tzinfo=timezone.utc)
+# END_DATETIME = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+START_DATETIME = None
+END_DATETIME = None
 
 
 # =========================
@@ -93,9 +94,9 @@ class RedditFireworksScraper:
             user_agent=user_agent,
         )
 
-        # Voor tijdfilter (we filteren achteraf op timestamp)
-        self.start_ts = utc_timestamp(START_DATETIME)
-        self.end_ts = utc_timestamp(END_DATETIME)
+        # Voor tijdfilter (disabled voor nu)
+        self.start_ts = utc_timestamp(START_DATETIME) if START_DATETIME else None
+        self.end_ts = utc_timestamp(END_DATETIME) if END_DATETIME else None
 
     def search_subreddit_posts(self, subreddit_name: str, query: str, limit: int = 1000) -> List[Dict[str, Any]]:
         """Zoek posts in een subreddit op basis van query en filter op tijd."""
@@ -109,9 +110,10 @@ class RedditFireworksScraper:
             for submission in subreddit.search(query=query, sort="new", limit=limit):
                 created_utc = int(submission.created_utc)
 
-                # Filter op onze tijdsrange (31 dec - 1 jan)
-                if not (self.start_ts <= created_utc < self.end_ts):
-                    continue
+                # Filter op onze tijdsrange (disabled voor nu)
+                if self.start_ts and self.end_ts:
+                    if not (self.start_ts <= created_utc < self.end_ts):
+                        continue
 
                 post_dict = {
                     "type": "post",
@@ -151,8 +153,10 @@ class RedditFireworksScraper:
             for comment in submission.comments.list():
                 created_utc = int(comment.created_utc)
 
-                if not (self.start_ts <= created_utc < self.end_ts):
-                    continue
+                # Filter op onze tijdsrange (disabled voor nu)
+                if self.start_ts and self.end_ts:
+                    if not (self.start_ts <= created_utc < self.end_ts):
+                        continue
 
                 body = comment.body or ""
 
@@ -207,7 +211,10 @@ class RedditFireworksScraper:
 # main 
 def main():
     print("[INFO] Start Reddit vuurwerk scraper")
-    print(f"[INFO] Periode: {START_DATETIME.isoformat()} t/m {END_DATETIME.isoformat()} (UTC)")
+    if START_DATETIME and END_DATETIME:
+        print(f"[INFO] Periode: {START_DATETIME.isoformat()} t/m {END_DATETIME.isoformat()} (UTC)")
+    else:
+        print("[INFO] Periode: geen filter (alle posts)")
 
     scraper = RedditFireworksScraper()
     df = scraper.run()
