@@ -9,9 +9,6 @@ import praw
 import pandas as pd
 
 
-# =========================
-# CONFIGURATIE
-# =========================
 
 # Subreddits om te doorzoeken (zonder r/)
 SUBREDDITS = [
@@ -74,10 +71,8 @@ def contains_any(text: str, keywords: List[str]) -> bool:
     return any(kw.lower() in lower for kw in keywords)
 
 
-# =========================
-# REDDIT SCRAPER KLASSE
-# =========================
 
+# reddit scraper class
 class RedditFireworksScraper:
     def __init__(self):
         # Reddit API credentials ophalen uit omgevingsvariabelen
@@ -209,11 +204,7 @@ class RedditFireworksScraper:
         df = pd.DataFrame(all_records)
         return df
 
-
-# =========================
-# MAIN
-# =========================
-
+# main 
 def main():
     print("[INFO] Start Reddit vuurwerk scraper")
     print(f"[INFO] Periode: {START_DATETIME.isoformat()} t/m {END_DATETIME.isoformat()} (UTC)")
@@ -232,6 +223,6 @@ def main():
     print(f"[INFO] Aantal records totaal (posts + comments): {len(df)}")
     print(f"[INFO] Data opgeslagen in: {csv_filename} en {json_filename}")
 
-
+# auto start main
 if __name__ == "__main__":
     main()
