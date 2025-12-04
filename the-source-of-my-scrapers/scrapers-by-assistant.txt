@@ -1,3 +1,4 @@
+```note
 User instructions by assistant
 --- 
 
@@ -50,3 +51,25 @@ User instructions by assistant
 Notes:
 - These lines are direct quotes of the user's messages (verbatim where present) followed by a concise summary of the intended action.
 - File created automatically by the assistant on behalf of the user.
+
+16) "for now, get it back later."
+   - Summary: Temporarily remove the hardcoded time/date filter from the old Reddit scraper; plan to restore it later as a configurable option.
+
+17) "it still gets 0...."
+   - Summary: Report that the old Reddit scraper returns zero results despite manual browser searches; investigate cause (HTML structure change, JS-rendering, headers, or blocking).
+
+18) "can you install praw?"
+   - Summary: Request to install the `praw` package / add it to project requirements so the Reddit API-based scraper can be used (requires Reddit API credentials).
+
+19) "remove time filter"
+   - Summary: Explicit instruction to remove the hardcoded date/time filtering in `vw_old-reddit_scraper.py` so searches return all posts for now.
+
+20) "update het bestand scrapers-by-assistent.txt met de nieuwe prompts die ik je heb gegeven en doe dit voortaan bij elk nieuwe prompt."
+   - Summary: Ask the assistant to append new prompts to `the-source-of-my-scrapers/scrapers-by-assistant.txt` now and on every subsequent new prompt.
+
+---
+Notes:
+- These lines are direct quotes of the user's messages (verbatim where present) followed by a concise summary of the intended action.
+- File created automatically by the assistant on behalf of the user.
+
+```
